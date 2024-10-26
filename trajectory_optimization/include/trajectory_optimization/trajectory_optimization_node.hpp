@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include "common_msgs/msg/trajectory.hpp"
 #include "common_msgs/msg/point_xy.hpp"
+#include "Interpolate.hpp"
 #include <Eigen/Dense>
 #include <cmath>
 #include <iostream>
@@ -25,7 +26,10 @@ class TrajectoryOptimization : public rclcpp::Node
         std::vector<float> acc_profile_;    
 
         //Auxiliar methods
-        Matrix<double, Dynamic, 6> process_track_data(VectorXd x, VectorXd y, VectorXd twr, VectorXd twl);
+        MatrixXd process_track_data(VectorXd x, VectorXd y, VectorXd twr, VectorXd twl);
+        MatrixXd diff_col(MatrixXd E);
+        VectorXd cumsum(VectorXd v);
+        VectorXd gradient(VectorXd f);
         MatrixXd matrixH(VectorXd delx, VectorXd dely);
         MatrixXd matrixB(VectorXd xin, VectorXd yin, VectorXd delx, VectorXd dely);
         VectorXd solver(MatrixXd H, MatrixXd B);
