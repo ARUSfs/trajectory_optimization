@@ -8,6 +8,7 @@
 using namespace std;
 using namespace Eigen;
 
+
 class TrajectoryOptimization : public rclcpp::Node
 {
     public:

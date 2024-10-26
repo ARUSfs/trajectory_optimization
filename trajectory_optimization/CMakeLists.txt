@@ -10,17 +10,22 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(common_msgs REQUIRED)
+find_package(qpOASES REQUIRED)
 
 include_directories(
   include
   include/${PROJECT_NAME}/libInterpolate
+  ${qpOASES_INCLUDE_DIRS}
 )
 
 add_executable(trajectory_optimization_exec src/trajectory_optimation_node.cpp)
 ament_target_dependencies(trajectory_optimization_exec rclcpp
                             std_msgs
                             common_msgs
+                            qpOASES
 )
+
+
 
 install(TARGETS
   trajectory_optimization_exec

@@ -1,5 +1,5 @@
 #include "trajectory_optimization/trajectory_optimization_node.hpp"
-
+#include <qpOASES.hpp>
 
 
 TrajectoryOptimization::TrajectoryOptimization() : Node("trajectory_optimization")
@@ -25,26 +25,21 @@ void TrajectoryOptimization::arussim_callback(common_msgs::msg::Trajectory::Shar
 
     //First, we process track data 
     MatrixXd track_data = TrajectoryOptimization::process_track_data(x, y, twr, twl);
+
+    //Then, we form the matrices which will define the quadratic optimization problem
+    VectorXd xin = track_data.col(2);
+    VectorXd yin = track_data.col(3);
+    VectorXd xout = track_data.col(4);
+    VectorXd yout = track_data.col(5);
     
-    cout << "track_data:\n";                    //This is just for testing results at terminal,
-    for(int i = 0; i < 10; i++){                //it'll be erased
-        cout << track_data.row(i) << endl;
-    }
+    VectorXd delx = xout - xin;
+    VectorXd dely = yout - yin;
 
-    // //Then, we form the matrices which will define the quadratic optimization problem
-    // VectorXd xin = track_data.col(2);
-    // VectorXd yin = track_data.col(3);
-    // VectorXd xout = track_data.col(4);
-    // VectorXd yout = track_data.col(5);
-    
-    // VectorXd delx = xout - xin;
-    // VectorXd dely = yout - yin;
+    MatrixXd H = TrajectoryOptimization::matrixH(delx, dely);
+    MatrixXd  B = TrajectoryOptimization::matrixB(xin, yin, delx, dely);
 
-    // MatrixXd H = TrajectoryOptimization::matrixH(delx, dely);
-    // MatrixXd B = TrajectoryOptimization::matrixB(xin, yin, delx, dely);
-
-    // //Solve the quadratic problem
-    // VectorXd resMCP = TrajectoryOptimization::solver(H,B);
+    //Solve the quadratic problem
+    //VectorXd resMCP = solver(H,B);
 
     // //Co-ordinates for the resultant curve
     // VectorXd xresMCP = VectorXd::Zero(n);
@@ -59,13 +54,6 @@ void TrajectoryOptimization::arussim_callback(common_msgs::msg::Trajectory::Shar
     //trajectory_pub_ -> publish(trajectory_msg);
 }
 
-int main(int argc, char * argv[])
-{
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<TrajectoryOptimization>());
-    rclcpp::shutdown();
-    return 0;
-}
 
 
 
@@ -76,7 +64,7 @@ MatrixXd TrajectoryOptimization::process_track_data(VectorXd x, VectorXd y, Vect
    /*interpolate data to get finer curve with equal distances between each segment
     higher no. of segments causes trajectory to follow the reference line*/
     int n = x.size();
-    const int n_seg = 1500;
+    const int n_seg = 1000;
 
     MatrixXd path_x_y(n,2); path_x_y << x, y;
 
@@ -190,15 +178,44 @@ VectorXd TrajectoryOptimization::gradient(VectorXd f){
 }
 
 MatrixXd TrajectoryOptimization::matrixH(VectorXd delx, VectorXd dely){
+    int n = delx.size();
+    MatrixXd H = MatrixXd::Zero(n,n);
 
+    for(int i = 1; i < n-1; i++ ){
+        //First row
+        H(i-1,i-1) = H(i-1,i-1) + pow(delx(i-1),2)     + pow(dely(i-1),2);
+        H(i-1,i)   = H(i-1,i)   - 2*delx(i-1)*delx(i) - 2*dely(i-1)*dely(i);
+        H(i-1,i+1) = H(i-1,i+1) + delx(i-1)*delx(i+1) + dely(i-1)*dely(i+1);
+
+        //Second row
+        H(i,i-1)   = H(i,i-1)   - 2*delx(i-1)*delx(i) - 2*dely(i-1)*dely(i);
+        H(i,i)     = H(i,i )    + 4*pow(delx(i),2)    + 4*pow(dely(i),2);
+        H(i,i+1)   = H(i,i+1)   - 2*delx(i)*delx(i+1) - 2*dely(i)*dely(i+1);
+
+        //Third row
+        H(i+1,i-1) = H(i+1,i-1) + delx(i-1)*delx(i+1) + dely(i-1)*dely(i+1);
+        H(i+1,i)   = H(i+1,i)   - 2*delx(i)*delx(i+1) - 2*dely(i)*dely(i+1);
+        H(i+1,i+1) = H(i+1,i+1) + pow(delx(i+1),2)    + pow(dely(i+1),2);
+    }
+
+    return H;
 }
 
 MatrixXd TrajectoryOptimization::matrixB(VectorXd xin, VectorXd yin, VectorXd delx, VectorXd dely){
+    int n = delx.size();
+    MatrixXd B = MatrixXd::Zero(1,n);
 
+    for(int i = 1; i < n-1; i++){
+        B(0,i-1) = B(0,i-1) + 2*(xin(i+1)+xin(i-1)-2*xin(i))*delx(i-1) + 2*(yin(i+1)+yin(i-1)-2*yin(i))*dely(i-1);
+        B(0,i)   = B(0,i)   - 4*(xin(i+1)+xin(i-1)-2*xin(i))*delx(i)   - 4*(yin(i+1)+yin(i-1)-2*yin(i))*dely(i);
+        B(0,i+1) = B(0,i+1) + 2*(xin(i+1)+xin(i-1)-2*xin(i))*delx(i+1) + 2*(yin(i+1)+yin(i-1)-2*yin(i))*dely(i+1);
+    }
+
+    return B;
 }
 
-VectorXd TrajectoryOptimization::solver(MatrixXd H, MatrixXd B){
-
+VectorXd solver(MatrixXd H, MatrixXd B){
+    
 }
 
 common_msgs::msg::Trajectory TrajectoryOptimization::create_trajectory(VectorXd traj_x, VectorXd traj_y){
@@ -209,6 +226,19 @@ common_msgs::msg::Trajectory TrajectoryOptimization::create_trajectory(VectorXd 
     //     traj_msg.points[i].y = traj_y(i);
     // }
 
+    // traj_msg.s = {};
+    // traj_msg.k = {};
+    // traj_msg.speed_profile = {};
+    // traj_msg.acc_profile = {};
+
     // return traj_msg;
 }
 
+
+int main(int argc, char * argv[])
+{
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<TrajectoryOptimization>());
+    rclcpp::shutdown();
+    return 0;
+}
