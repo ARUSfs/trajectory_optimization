@@ -1,5 +1,5 @@
 #include "trajectory_optimization/trajectory_optimization_node.hpp"
-#include <qpOASES.hpp>
+#include "qpmad/solver.h"
 
 
 TrajectoryOptimization::TrajectoryOptimization() : Node("trajectory_optimization")
@@ -15,8 +15,8 @@ void TrajectoryOptimization::arussim_callback(common_msgs::msg::Trajectory::Shar
 
     int n = track_xy.size();
     VectorXd x(n), y(n), twr(n), twl(n);      
-    twr << 1.5*VectorXd::Ones(n);
-    twl << 1.5*VectorXd::Ones(n); //Track width parameters need to be established, this is just a placeholder
+    twr << VectorXd::Ones(n);
+    twl << VectorXd::Ones(n); //Track width parameters need to be established, this is just a placeholder
 
     for(int i = 0; i < n; i++){
         x(i) = track_xy[i].x;
@@ -39,19 +39,19 @@ void TrajectoryOptimization::arussim_callback(common_msgs::msg::Trajectory::Shar
     MatrixXd  B = TrajectoryOptimization::matrixB(xin, yin, delx, dely);
 
     //Solve the quadratic problem
-    //VectorXd resMCP = solver(H,B);
+    VectorXd resMCP = TrajectoryOptimization::qp_solver(H,B);
 
-    // //Co-ordinates for the resultant curve
-    // VectorXd xresMCP = VectorXd::Zero(n);
-    // VectorXd yresMCP = VectorXd::Zero(n);
+    //Co-ordinates for the resultant curve
+    VectorXd xresMCP = VectorXd::Zero(n);
+    VectorXd yresMCP = VectorXd::Zero(n);
 
-    // for(int i = 0; i < n; i++){
-    //     xresMCP(i) = xin(i) + resMCP(i)*delx(i);
-    //     yresMCP(i) = yin(i) + resMCP(i)*dely(i);
-    // }
+    for(int i = 0; i < n; i++){
+        xresMCP(i) = xin(i) + resMCP(i)*delx(i);
+        yresMCP(i) = yin(i) + resMCP(i)*dely(i);
+    }
     
-    //common_msgs::msg::Trajectory trajectory_msg = TrajectoryOptimization::create_trajectory(xresMCP, yresMCP);
-    //trajectory_pub_ -> publish(trajectory_msg);
+    common_msgs::msg::Trajectory trajectory_msg = TrajectoryOptimization::create_trajectory(xresMCP, yresMCP);
+    trajectory_pub_ -> publish(trajectory_msg);
 }
 
 
@@ -214,24 +214,53 @@ MatrixXd TrajectoryOptimization::matrixB(VectorXd xin, VectorXd yin, VectorXd de
     return B;
 }
 
-VectorXd solver(MatrixXd H, MatrixXd B){
-    
+VectorXd TrajectoryOptimization::qp_solver(MatrixXd H, MatrixXd B){
+    //Define constraints
+    int n = H.rows();
+    VectorXd lb = VectorXd::Zero(n);
+    VectorXd ub = VectorXd::Ones(n);
+
+    //If start and end points are the same. 
+    //Solver doesn't handle equality constraints, but we can implement it as two inequalities
+    //Aeq*res - beq <= 0 && -(Aeq*res - beq) <= 0
+    MatrixXd Aeq = MatrixXd::Zero(1,n);
+    Aeq(0) = 1;
+    Aeq(n-1) = -1;
+    double beq = 0;
+
+    MatrixXd A(2, n); 
+    A.row(0)= Aeq;
+    A.row(1) = -Aeq;
+
+    VectorXd Alb(2), Aub(2);
+    Alb << beq, -beq;
+    Aub << beq, -beq;
+
+    //Solver
+    VectorXd res;
+    qpmad::Solver solver;
+
+    H << 2*H;
+    qpmad::Solver::ReturnStatus status = solver.solve(res, H, B.transpose(), lb, ub, A, Alb, Aub);
+    if (status != qpmad::Solver::OK)
+    {
+        std::cerr << "Error" << std::endl;
+    }
+
+    return res;
 }
 
 common_msgs::msg::Trajectory TrajectoryOptimization::create_trajectory(VectorXd traj_x, VectorXd traj_y){
-    // common_msgs::msg::Trajectory traj_msg;
+    common_msgs::msg::Trajectory traj_msg;
 
-    // for(int i = 0; i < traj_x.size(); i++){
-    //     traj_msg.points[i].x = traj_x(i);
-    //     traj_msg.points[i].y = traj_y(i);
-    // }
+    for(int i = 0; i < traj_x.size(); i++){
+        common_msgs::msg::PointXY p;
+        p.x = traj_x(i);
+        p.y = traj_y(i);
+        traj_msg.points.push_back(p);
+    }
 
-    // traj_msg.s = {};
-    // traj_msg.k = {};
-    // traj_msg.speed_profile = {};
-    // traj_msg.acc_profile = {};
-
-    // return traj_msg;
+    return traj_msg;
 }
 
 

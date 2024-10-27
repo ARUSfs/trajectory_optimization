@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include "common_msgs/msg/trajectory.hpp"
 #include "common_msgs/msg/point_xy.hpp"
-#include "Interpolate.hpp"
+#include "libInterpolate/Interpolate.hpp"
 #include <Eigen/Dense>
 #include <cmath>
 #include <iostream>
@@ -33,7 +33,7 @@ class TrajectoryOptimization : public rclcpp::Node
         VectorXd gradient(VectorXd f);
         MatrixXd matrixH(VectorXd delx, VectorXd dely);
         MatrixXd matrixB(VectorXd xin, VectorXd yin, VectorXd delx, VectorXd dely);
-        VectorXd solver(MatrixXd H, MatrixXd B);
+        VectorXd qp_solver(MatrixXd H, MatrixXd B);
         common_msgs::msg::Trajectory create_trajectory(VectorXd traj_x, VectorXd traj_y);
 
 };

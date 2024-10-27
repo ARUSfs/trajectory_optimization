@@ -10,27 +10,26 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(common_msgs REQUIRED)
-find_package(qpOASES REQUIRED)
+find_package(Eigen3 REQUIRED)
+
 
 include_directories(
   include
-  include/${PROJECT_NAME}/libInterpolate
-  ${qpOASES_INCLUDE_DIRS}
+  include/${PROJECT_NAME}/external
 )
 
-add_executable(trajectory_optimization_exec src/trajectory_optimation_node.cpp)
+add_executable(trajectory_optimization_exec src/trajectory_optimization_node.cpp)
 ament_target_dependencies(trajectory_optimization_exec rclcpp
                             std_msgs
                             common_msgs
-                            qpOASES
 )
-
 
 
 install(TARGETS
   trajectory_optimization_exec
   DESTINATION lib/${PROJECT_NAME}
 )
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -43,5 +42,7 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+ament_export_include_directories(include)
 
 ament_package()
