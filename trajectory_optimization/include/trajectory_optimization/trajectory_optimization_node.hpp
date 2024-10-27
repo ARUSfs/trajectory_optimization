@@ -2,6 +2,7 @@
 #include "common_msgs/msg/trajectory.hpp"
 #include "common_msgs/msg/point_xy.hpp"
 #include "libInterpolate/Interpolate.hpp"
+#include "qpmad/solver.h"
 #include <Eigen/Dense>
 #include <cmath>
 #include <iostream>

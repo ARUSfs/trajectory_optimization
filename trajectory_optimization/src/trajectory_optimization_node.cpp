@@ -1,5 +1,4 @@
 #include "trajectory_optimization/trajectory_optimization_node.hpp"
-#include "qpmad/solver.h"
 
 
 TrajectoryOptimization::TrajectoryOptimization() : Node("trajectory_optimization")
@@ -222,19 +221,19 @@ VectorXd TrajectoryOptimization::qp_solver(MatrixXd H, MatrixXd B){
 
     //If start and end points are the same. 
     //Solver doesn't handle equality constraints, but we can implement it as two inequalities
-    //Aeq*res - beq <= 0 && -(Aeq*res - beq) <= 0
+    // beq <= Aeq*res <= beq
     MatrixXd Aeq = MatrixXd::Zero(1,n);
     Aeq(0) = 1;
     Aeq(n-1) = -1;
     double beq = 0;
 
-    MatrixXd A(2, n); 
+    MatrixXd A(1, n); 
     A.row(0)= Aeq;
-    A.row(1) = -Aeq;
+ 
 
-    VectorXd Alb(2), Aub(2);
-    Alb << beq, -beq;
-    Aub << beq, -beq;
+    VectorXd Alb(1), Aub(1);
+    Alb << beq;
+    Aub << beq;
 
     //Solver
     VectorXd res;
