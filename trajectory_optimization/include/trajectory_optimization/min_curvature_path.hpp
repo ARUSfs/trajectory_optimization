@@ -1,3 +1,9 @@
+/**
+ * @file min_curvature_path.hpp
+ * @author José Manuel Landero Plaza (josemlandero05@gmail.com)
+ * @brief Namespace for implementation of the optimized path generator and all the necessary auxiliar methods
+ * @date 4-11-2024
+ */
 #include <rclcpp/rclcpp.hpp>
 #include "common_msgs/msg/trajectory.hpp"
 #include "common_msgs/msg/point_xy.hpp"
@@ -10,24 +16,79 @@ using namespace std;
 using namespace Eigen;
 
 namespace MinCurvaturepath {
-    //Methods declaration
+    
+    //Declaration of auxiliar methods
+
+    /**
+     * @brief Smooths the given path increasing the number of points and 
+     * returns the smooth path in terms of centerline and path boundaries
+     * 
+     * @param  x X coordinates of the given path points
+     * @param  y Y coordinates of the given path points
+     * @param  twr Track width allowed to the right of each point
+     * @param  twl Track width allowed to the left of each point
+     * 
+     * @return MatrixXd Matrix containing track data: [xt, yt, xin, yin, xout, yout]
+     */
     MatrixXd process_track_data(VectorXd x, VectorXd y, VectorXd twr, VectorXd twl);
+
+    /**
+     * @brief Calculates the difference between each pair of consecutive elements of each column
+     * 
+     * @return MatrixXd 
+     */
     MatrixXd diff_col(MatrixXd E);
+
+    /**
+     * @brief Calculates the cumulative sum of a vector
+     * 
+     * @return VectorXd 
+     */
     VectorXd cumsum(VectorXd v);
+
+    /**
+     * @brief Calculates one-dimensional numerical gradient of vector f (∂f/∂x)
+     * 
+     * @return VectorXd 
+     */
     VectorXd gradient(VectorXd f);
+
+    /**
+     * @brief Generates the H matrix of our quadratic problem
+     * 
+     * @return MatrixXd
+     */
     MatrixXd matrixH(VectorXd delx, VectorXd dely);
+
+    /**
+     * @brief Generates the B matrix of our quadratic problem
+     * 
+     * @return MatrixXd
+     */
     MatrixXd matrixB(VectorXd xin, VectorXd yin, VectorXd delx, VectorXd dely);
+
+    /**
+     * @brief Solves the quadratic optimization problem using an external solver
+     * 
+     * @return VectorXd Parameter vector (aplha) that determines the resulting trajectory points 
+     * (traj_x = xin + aplha*delx, traj_y = yin + alpha*dely)
+     */
     VectorXd qp_solver(MatrixXd H, MatrixXd B);
 
-    //Main function for getting optimized trajectory
-    MatrixXd get_min_curvature_path(std::vector<common_msgs::msg::PointXY> track_xy, VectorXd twr, VectorXd twl){
-        int n = track_xy.size();
-        VectorXd x(n), y(n);
-        for(int i = 0; i < n; i++){
-            x(i) = track_xy[i].x;
-            y(i) = track_xy[i].y;
-        }
-        
+    /**
+     * @brief Main function that calculates the minimal curvature path 
+     * using several auxiliar methods
+     * 
+     * @param  x X coordinates of the given path points
+     * @param  y Y coordinates of the given path points
+     * @param  twr Track width allowed to the right of each point
+     * @param  twl Track width allowed to the left of each point
+     * 
+     * @return MatrixXd Matrix containing optimal path: [traj_x, traj_y]
+     */
+    MatrixXd get_min_curvature_path(VectorXd x, VectorXd y, VectorXd twr, VectorXd twl){
+        int n = x.size();
+            
         //First, we process track data 
         MatrixXd track_data = process_track_data(x, y, twr, twl);
 
@@ -46,7 +107,7 @@ namespace MinCurvaturepath {
         //Solve the quadratic problem
         VectorXd resMCP = qp_solver(H,B);
 
-        //Co-ordinates for the resultant curve
+        //Coordinates for the resultant curve
         VectorXd xresMCP = VectorXd::Zero(n);
         VectorXd yresMCP = VectorXd::Zero(n);
 
@@ -61,10 +122,10 @@ namespace MinCurvaturepath {
         return res;
     }
 
-    //Auxiliar methods
+    //Implementation of auxiliar methods
     MatrixXd process_track_data(VectorXd x, VectorXd y, VectorXd twr, VectorXd twl){
-    /*interpolate data to get finer curve with equal distances between each segment
-        higher no. of segments causes trajectory to follow the reference line*/
+        //Interpolate data to get finer curve with equal distances between each segment
+        //Higher number of segments causes trajectory to follow the reference line
         int n = x.size();
         const int n_seg = 1000;
 
